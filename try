@@ -1,0 +1,22 @@
+#!/bin/sh -x
+#
+# try - Test-run dagd (on host, doesn't need cross-compilation)
+#
+# Copyright (C) 2021 Linzhi Ltd.
+#
+# This work is licensed under the terms of the MIT License.
+# A copy of the license can be found in the file COPYING.txt
+#
+
+case "$1" in
+	d)	dbg="gdb --args"
+		shift;;
+	s)	dbg="strace -o out -f"
+		shift;;
+	v)	dbg="valgrind --leak-check=full --show-leak-kinds=all"
+		shift;;
+	*)	dbg=;;
+esac
+
+$dbg ./dagd "$@" -s 10G 'dag/%s-%u.dag' 'csum/%s-%u.csum'
+# 'csum/%u.csum'

@@ -1,0 +1,49 @@
+#!/bin/bash
+#
+# precompute-dags - Precompute DAG files (e.g., to speed up miner bringup)
+#
+# Copyright (C) 2021 Linzhi Ltd.
+#
+# This work is licensed under the terms of the MIT License.
+# A copy of the license can be found in the file COPYING.txt
+#
+
+#
+# Examples
+# mkdir dags
+# cd dags
+# ../precompute ethash 385 410
+# ../precompute etchash 197 210
+#
+
+usage()
+{
+	echo "usage: $0 algorithm from-epoch [to-epoch]" 1>&2
+	exit 1
+}
+
+
+while [ "$1" ]; do
+	case "$1" in
+	-*)	usage;;
+	*)	break;;
+	esac
+done
+
+[ "$2" ] || usage
+[ "$4" ] && usage
+
+me=`type -p "$0"`
+if [ -z "$me" ]; then
+        echo "$0: not found" 1>&2
+        exit 1
+fi
+me=`realpath "$me"` || exit
+dir=`dirname "$me/"` || exit
+
+epoch=$2
+end=${3:-$2}
+while [ "$epoch" -le "$end" ]; do
+	$dir/dagd -d -1 -1 -a "$1" -e "$epoch" %s-%u.dag || exit
+	epoch=`expr "$epoch" + 1`
+done

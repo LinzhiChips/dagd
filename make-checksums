@@ -1,0 +1,81 @@
+#!/bin/bash -x
+#
+# make-checksums - Compute checksum files
+#
+# Copyright (C) 2021 Linzhi Ltd.
+#
+# This work is licensed under the terms of the MIT License.
+# A copy of the license can be found in the file COPYING.txt
+#
+
+PATH=$PATH:.
+
+#
+# ./make-checksums csum
+# generates checksums for Ethash epochs 0-440 and
+# ETChash epochs 190-440
+# in csum/
+#
+# Package with
+#
+#   tar cf csum-202012.tar csum
+#
+# extract on LC with
+#
+#   tar x -C /data -f csum-202012.tar
+#
+
+CORES=3
+
+ALGOS="ETCHASH ETHASH"
+ETHASH_MIN=0
+ETHASH_MAX=440
+ETCHASH_MIN=190
+ETCHASH_MAX=440
+
+
+usage()
+{
+	cat <<EOF 1>&2
+usage: $0 [-n] directory
+
+-n  (new) skip existing files
+EOF
+	exit 1
+}
+
+
+new=false
+case "$1" in
+-n)	new=true
+	shift;;
+-*)	usage;;
+esac
+
+[ "$1" ] || usage
+[ "$2" ] && usage
+[ -d "$1" ] || usage
+dir=$1
+
+cores=$CORES
+for algo in $ALGOS; do
+	eval min='$'${algo}_MIN
+	eval max='$'${algo}_MAX
+	epoch=$min
+	while [ $epoch -lt $max ]; do
+		a=`echo $algo | tr 'A-Z' 'a-z'`
+		file=$dir/$a-$epoch.csum
+		if $new && [ -r $file ]; then
+			epoch=`expr $epoch + 1`
+			continue
+		fi
+		if [ $cores -ge 1 ]; then
+			cores=`expr $cores - 1`
+		else
+			wait -n
+		fi	
+		echo "$algo $epoch `date`: $file"
+		dagd -a $a -g $epoch >$file &
+		epoch=`expr $epoch + 1`
+	done
+done
