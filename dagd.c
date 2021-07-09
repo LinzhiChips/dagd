@@ -164,7 +164,7 @@ static void usage(const char *name)
 "      Verify or generate the DAG indicated with -a and -e, without checking\n"
 "      available space, then exit.\n"
 "  -a algorithm\n"
-"      PoW algorithm, \"ethash\" or \"etchash\". Default: ethash.\n"
+"      PoW algorithm, \"ethash\", \"etchash\" or \"ubqhash\". Default: ethash.\n"
 "  -d  Increase debug level (default: no debug output)\n"
 "  -e epoch\n"
 "      Begin preparing DAGs starting at the indicated epoch (default: start\n"
