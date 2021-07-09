@@ -66,7 +66,11 @@ void csum_generate(enum dag_algo algo, uint16_t epoch)
 	init_crypto();
 	dag_algo = algo;
 	get_seedhash(seed, epoch);
-	mkcache(cache, cache_bytes, seed);
+	if (dag_algo != 2) {
+		mkcache(cache, cache_bytes, seed);
+	} else {
+		mkcache_ubqhash(cache, cache_bytes, seed);
+	}
 
 	for (i = 0; i != chunks; i++) {
 		unsigned lines = lines_in_chunk(i, full_lines);
