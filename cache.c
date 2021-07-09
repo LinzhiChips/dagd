@@ -42,28 +42,15 @@ bool cache_build(struct cache *c)
 		get_seedhash(c->seed_hash, c->epoch);
 		return 1;
 	}
-	if (dag_algo != 2) {
-		if (!c->cache) {
-			c->cache = alloc_size(c->cache_bytes);
-			mkcache_init(c->cache, c->cache_bytes, c->seed_hash);
-			return 1;
-		}
-		if (c->next_round != CACHE_ROUNDS) {
-			mkcache_round(c->cache, c->cache_bytes);
-			c->next_round++;
-			return 1;
-		}
-	} else {
-		if (!c->cache) {
-			c->cache = alloc_size(c->cache_bytes);
-			mkcache_init_ubqhash(c->cache, c->cache_bytes, c->seed_hash);
-			return 1;
-		}
-		if (c->next_round != CACHE_ROUNDS) {
-			mkcache_round_ubqhash(c->cache, c->cache_bytes);
-			c->next_round++;
-			return 1;
-		}
+	if (!c->cache) {
+		c->cache = alloc_size(c->cache_bytes);
+		mkcache_init(c->cache, c->cache_bytes, c->seed_hash);
+		return 1;
+	}
+	if (c->next_round != CACHE_ROUNDS) {
+		mkcache_round(c->cache, c->cache_bytes);
+		c->next_round++;
+		return 1;
 	}
 	return 0;
 }
