@@ -11,8 +11,8 @@ CFLAGS = -g -Wall -Wextra -Wshadow -Wno-unused-parameter \
          -Wmissing-prototypes -Wmissing-declarations \
          -I../../lib/common -I../../lib/dag \
          -I../libcommon -I../libdag
-LDLIBS = -L../../lib/dag -L../lib -ldag \
-    -L../../lib/common -lcommon -lmosquitto -lgcrypt -lm
+LDLIBS = -L../../lib/dag -L../libdag -L../lib -ldag \
+    -L../../lib/common -L../libcommon -lcommon -lmosquitto -lgcrypt -lm
 
 OBJS = $(NAME).o epoch.o cache.o dag.o debug.o mqtt.o csum.o
 
