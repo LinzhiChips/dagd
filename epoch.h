@@ -25,7 +25,9 @@
  */
 
 #define	EPOCH_MIN	40	/* first epoch we may possibly see */
-#define	EPOCH_MAX	440	/* highest epoch our hardware supports */
+#define	EPOCH_MAX	480	/* highest epoch our hardware supports is 439,
+				   but we can zombie-mine beyond this. 40 more
+				   epochs should be more than enough. */
 
 struct epoch {
 	char		*path;	/* path to DAG file */
