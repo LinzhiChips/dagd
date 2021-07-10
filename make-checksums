@@ -1,4 +1,4 @@
-#!/bin/bash -x
+#!/bin/bash
 #
 # make-checksums - Compute checksum files
 #
@@ -29,38 +29,55 @@ CORES=3
 
 ALGOS="ETCHASH ETHASH UBQHASH"
 ETHASH_MIN=0
-ETHASH_MAX=440
+ETHASH_MAX=480
 ETCHASH_MIN=190
-ETCHASH_MAX=480
+ETCHASH_MAX=440
 UBQHASH_MIN=22
-UBQHASH_MAX=440
+UBQHASH_MAX=100
 
 
 usage()
 {
 	cat <<EOF 1>&2
-usage: $0 [-n] directory
+usage: $0 [-a algorithms] [-c cores] [-n] [-x] directory
 
+-a algorithms
+    space-separated list of algorithms to process
+    (default: $ALGOS)
+-c cores
+    set the number of CPU cores to use (default: $CORES)
 -n  (new) skip existing files
+-x  trace shell script execution (set -x)
 EOF
 	exit 1
 }
 
 
 new=false
-case "$1" in
--n)	new=true
-	shift;;
--*)	usage;;
-esac
+cores=$CORES
+algos=$ALGOS
+while [ "$1" ]; do
+	case "$1" in
+	-a)	[ "$2" ] || usage
+		algos=$2
+		shift;;
+	-c)	[ "$2" ] || usage
+		cores=$2
+		shift;;
+	-n)	new=true;;
+	-x)	set -x;;
+	-*)	usage;;
+	*)	break;;
+	esac
+	shift
+done
 
 [ "$1" ] || usage
 [ "$2" ] && usage
 [ -d "$1" ] || usage
 dir=$1
 
-cores=$CORES
-for algo in $ALGOS; do
+for algo in $algos; do
 	eval min='$'${algo}_MIN
 	eval max='$'${algo}_MAX
 	epoch=$min
