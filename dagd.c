@@ -135,6 +135,7 @@ static off_t dag_cache_size(const char *s)
 	if (size < reserve) {
 		fprintf(stderr, "cannot reserve %llu bytes from %llu bytes\n",
 		    (unsigned long long) reserve, (unsigned long long) size);
+		exit(1);
 	}
 	debug(1, "max cache size %llu - %llu = %llu bytes\n",
 	    (unsigned long long) size, (unsigned long long) reserve,
