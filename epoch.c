@@ -209,7 +209,7 @@ static void append_epoch(struct epoch *e)
 
 static void free_epoch(struct epoch *e)
 {
-	debug(1, "free_epoch %u", e->num);
+	debug(1, "free_epoch %u (%p)", e->num, e);
 	if (e->dag_handle)
 		dagio_close(e->dag_handle);
 	if (e->csum_fd >= 0 && close(e->csum_fd) < 0)
@@ -262,7 +262,7 @@ static void remove_epoch(struct epoch *e, off_t *sum)
 /* ----- Report ------------------------------------------------------------ */
 
 
-#define	REPORT_ENTRY_MAX_BYTES	((8 + 1) * 6 + 1)
+#define	REPORT_ENTRY_MAX_BYTES	(16 + (8 + 1) * 6 + 1)
 
 
 char *epoch_report(void)
@@ -283,9 +283,9 @@ char *epoch_report(void)
 		    dagalgo_name(e->algo), e->num, e->pos, e->nominal,
 		    e->lines, e->cache.next_round, CACHE_ROUNDS);
 		s += len;
+		assert(buf + n * REPORT_ENTRY_MAX_BYTES + 1 > s);
 	}
-	*s++ = 0;
-	assert(buf + n * REPORT_ENTRY_MAX_BYTES + 1 >= s);
+	*s = 0;
 	return buf;
 }
 
