@@ -31,6 +31,9 @@
 #define	MQTT_HOST		"localhost"
 #define	MQTT_PORT		1883
 #define	MQTT_TOPIC_EPOCH	"/mine/epoch"
+#define	MQTT_TOPIC_SLOT_EPOCH	"/mine/+/epoch"
+#define	MQTT_TOPIC_SLOT0_EPOCH	"/mine/0/epoch"
+#define	MQTT_TOPIC_SLOT1_EPOCH	"/mine/1/epoch"
 #define	MQTT_TOPIC_CACHE	"/mine/dag-cache"
 #define	MQTT_TOPIC_SHUTDOWN	"/sys/shutdown"
 #define	MQTT_TOPIC_MINED_STATE	"/mine/mined-state"
@@ -143,7 +146,9 @@ static void message(struct mosquitto *mosq, void *user,
 	char *buf, *end;
 	unsigned n;
 
-	if (!strcmp(msg->topic, MQTT_TOPIC_EPOCH)) {
+	if (!strcmp(msg->topic, MQTT_TOPIC_EPOCH) ||
+	    !strcmp(msg->topic, MQTT_TOPIC_SLOT0_EPOCH) ||
+	    !strcmp(msg->topic, MQTT_TOPIC_SLOT1_EPOCH)) {
 		type = mqtt_notify_epoch;
 	} else if (!strcmp(msg->topic, MQTT_TOPIC_MINED_STATE)) {
 		type = mqtt_notify_mined_state;
@@ -206,6 +211,11 @@ static void connected(struct mosquitto *mosq, void *data, int result)
 		exit(1);
 	}
 	res = mosquitto_subscribe(mosq, NULL, MQTT_TOPIC_EPOCH, qos_ack);
+	if (res < 0) {
+		fprintf(stderr, "mosquitto_subscribe: %d\n", res);
+		exit(1);
+	}
+	res = mosquitto_subscribe(mosq, NULL, MQTT_TOPIC_SLOT_EPOCH, qos_ack);
 	if (res < 0) {
 		fprintf(stderr, "mosquitto_subscribe: %d\n", res);
 		exit(1);
