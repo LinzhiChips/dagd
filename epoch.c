@@ -387,10 +387,13 @@ static bool maybe_wipe(void)
 	struct epoch **anchor = &epochs;
 	struct epoch *e = NULL;
 
-	for (anchor = &epochs; *anchor; anchor = &(*anchor)->next) {
+	while (1) {
 		e = *anchor;
+		if (!e)
+			break;
 		if ((int) e->algo == curr_algo)
 			break;
+		anchor = &(*anchor)->next;
 	}
 	if (!e || e->num >= curr_epoch)
 		return 0;
