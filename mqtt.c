@@ -36,7 +36,9 @@
 #define	MQTT_TOPIC_SLOT1_EPOCH	"/mine/1/epoch"
 #define	MQTT_TOPIC_CACHE	"/mine/dag-cache"
 #define	MQTT_TOPIC_SHUTDOWN	"/sys/shutdown"
-#define	MQTT_TOPIC_MINED_STATE	"/mine/mined-state"
+#define	MQTT_TOPIC_MINE_STATE	"/mine/+/state"
+#define	MQTT_TOPIC_MINE_STATE_0	"/mine/0/state"
+#define	MQTT_TOPIC_MINE_STATE_1	"/mine/1/state"
 #define	MQTT_CLIENT		"dagd"
 
 enum mqtt_qos {
@@ -139,6 +141,37 @@ static void process_epoch(unsigned n, const char *names)
 }
 
 
+static void process_mine_state(unsigned slot, const char *state)
+{
+	static bool hold_slot[2] = { 0, 0 };
+	const char *s;
+	char *end;
+	double done;
+
+	debug(2, "process_mine_state(slot %u, state %s)", slot, state);
+	s = strstr(state, "D:");
+	if (!s)
+		return;
+	done = strtod(s + 2, &end);
+	if (*end && *end != ' ') {
+		debug(0, "process_mine_state: bad progress in \"%s\"", state);
+		return;
+	}
+
+	bool next_hold = done != 0 && done != 1;
+
+	debug(3,
+	    "process_mine_state: slot %u, state \"%s\", hold %u,%u, next %u",
+	    slot, state, hold_slot[0], hold_slot[1], next_hold);
+
+	hold_slot[slot] = next_hold;
+	if ((hold_slot[0] || hold_slot[1]) != hold)
+		debug(2, "%s holding", hold ? "end" : "begin");
+	hold = hold_slot[0] || hold_slot[1];
+	notify(mqtt_notify_mined_state);
+}
+
+
 static void message(struct mosquitto *mosq, void *user,
     const struct mosquitto_message *msg)
 {
@@ -150,7 +183,8 @@ static void message(struct mosquitto *mosq, void *user,
 	    !strcmp(msg->topic, MQTT_TOPIC_SLOT0_EPOCH) ||
 	    !strcmp(msg->topic, MQTT_TOPIC_SLOT1_EPOCH)) {
 		type = mqtt_notify_epoch;
-	} else if (!strcmp(msg->topic, MQTT_TOPIC_MINED_STATE)) {
+	} else if (!strcmp(msg->topic, MQTT_TOPIC_MINE_STATE_0) ||
+	    !strcmp(msg->topic, MQTT_TOPIC_MINE_STATE_1)) {
 		type = mqtt_notify_mined_state;
 	} else if (!strcmp(msg->topic, MQTT_TOPIC_SHUTDOWN)) {
 		type = mqtt_notify_shutdown;
@@ -164,13 +198,9 @@ static void message(struct mosquitto *mosq, void *user,
 	buf[msg->payloadlen] = 0;
 
 	if (type == mqtt_notify_mined_state) {
-		bool next_hold = !strncmp(HOLD_STATE, buf, strlen(HOLD_STATE));
-
-		if (hold != next_hold)
-			debug(2, "%s holding", next_hold ? "begin" : "end");
-		hold = next_hold;
+		process_mine_state(!strcmp(msg->topic,
+		    MQTT_TOPIC_MINE_STATE_1), buf);
 		free(buf);
-		notify(mqtt_notify_mined_state);
 		return;
 	}
 
@@ -220,7 +250,7 @@ static void connected(struct mosquitto *mosq, void *data, int result)
 		fprintf(stderr, "mosquitto_subscribe: %d\n", res);
 		exit(1);
 	}
-	res = mosquitto_subscribe(mosq, NULL, MQTT_TOPIC_MINED_STATE, 0);
+	res = mosquitto_subscribe(mosq, NULL, MQTT_TOPIC_MINE_STATE, 0);
 	if (res < 0) {
 		fprintf(stderr, "mosquitto_subscribe: %d\n", res);
 		exit(1);
