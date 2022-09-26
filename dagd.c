@@ -1,12 +1,13 @@
 /*
  * dagd.c - DAG generation and cache management demon
  *
- * Copyright (C) 2021 Linzhi Ltd.
+ * Copyright (C) 2021, 2022 Linzhi Ltd.
  *
  * This work is licensed under the terms of the MIT License.
  * A copy of the license can be found in the file COPYING.txt
  */
 
+#include <stddef.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -24,9 +25,21 @@
 #include "epoch.h"
 
 
+static void send_status(mqtt_handle mqtt, bool idle)
+{
+	char *status;
+
+	status = epoch_report();
+	mqtt_status(mqtt, status, idle);
+	free(status);
+	if (!idle)
+		mqtt_poll(mqtt, 0);
+}
+
+
 static void loop(const char *broker)
 {
-	mqtt_handle mqtt = mqtt_init(broker);
+	mqtt_handle mqtt = mqtt_init(broker, 0);
 	bool holding = 0;
 
 	while (1) {
@@ -53,15 +66,9 @@ static void loop(const char *broker)
 					idle = curr_algo == (int) last_algo &&
 					    curr_epoch == last_epoch;
 			} else {
-				char *status;
-
 				holding = 0;
-				idle = !epoch_work(false);
-				status = epoch_report();
-				mqtt_status(mqtt, status, idle);
-				free(status);
-				if (!idle)
-					mqtt_poll(mqtt, 0);
+				idle = !epoch_work(0);
+				send_status(mqtt, idle);
 			}
 		}
 		/*
@@ -71,6 +78,20 @@ static void loop(const char *broker)
 		 */
 		epoch_shutdown();
 	}
+}
+
+
+static void once(bool use_mqtt, const char *broker, bool just_one)
+{
+	mqtt_handle mqtt = use_mqtt ? mqtt_init(broker, 1) : NULL;
+
+	epoch_init();
+	while (!shutdown_pending && epoch_work(just_one))
+		if (mqtt)
+			send_status(mqtt, 0);
+	send_status(mqtt, 1);
+	mqtt_poll(mqtt, 1);
+	epoch_shutdown();
 }
 
 
@@ -147,7 +168,7 @@ static off_t dag_cache_size(const char *s)
 static void usage(const char *name)
 {
 	fprintf(stderr,
-"usage: %s [-1 [-1]] [-a algo] [-d ...] [-e epoch] [-m host[:port]]\n"
+"usage: %s [-1 [-1]] [-a algo] [-d ...] [-e epoch] [-M] [-m host[:port]]\n"
 "       %*s[-s space|path-space] dag-fmt [csum-fmt]\n"
 "       %s -g epoch\n"
 "\n"
@@ -173,6 +194,8 @@ static void usage(const char *name)
 "      epoch is announced over MQTT)\n"
 "  -g epoch\n"
 "      generate the checksums for the specified epoch (on standard output)\n"
+"  -M  if using one-shot mode (options -1 or -1 -1), still announce progress\n"
+"      on MQTT.\n"
 "  -m host[:port]\n"
 "      Connect to the specified MQTT broker. Default is localhost:1883\n"
 "  -s space\n"
@@ -197,16 +220,18 @@ int main(int argc, char **argv)
 	bool just_one = 0;
 	const char *broker = NULL;
 	bool generate = 0;
+	bool status_on_mqtt = 0;
 	char *end;
 	int c;
 
 	int longopt = 0;
 	const struct option longopts[] = {
+		{ "alt-epoch",	1,	&longopt,	'E' },
 		{ "etchash",	1,	&longopt,	'e' },
 		{ NULL,		0,	NULL,		0 }
 	};
 
-	while ((c = getopt_long(argc, argv, "1a:de:g:m:s:", longopts, NULL))
+	while ((c = getopt_long(argc, argv, "1a:de:g:Mm:s:", longopts, NULL))
 	    != EOF)
 		switch (c) {
 		case '1':
@@ -238,6 +263,9 @@ int main(int argc, char **argv)
 				exit(1);
 			}
 			break;
+		case 'M':
+			status_on_mqtt = 1;
+			break;
 		case 'm':
 			broker = optarg;
 			break;
@@ -246,6 +274,11 @@ int main(int argc, char **argv)
 			break;
 		case 0:
 			switch (longopt) {
+			case 'E':
+				alt_epoch = strtoul(optarg, &end, 0);
+				if (*end)
+					usage(*argv);
+				break;
 			case 'e':
 				etchash_epoch = strtoul(optarg, &end, 0);
 				if (*end)
@@ -284,13 +317,10 @@ int main(int argc, char **argv)
 		usage(*argv);
 	}
 
-	if (one_shot) {
-		epoch_init();
-		while (epoch_work(just_one));
-		epoch_shutdown();
-	} else {
+	if (one_shot)
+		once(status_on_mqtt, broker, just_one);
+	else
 		loop(broker);
-	}
 
 	return 0;
 }

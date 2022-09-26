@@ -1,7 +1,7 @@
 /*
  * mqtt.h - MQTT interface
  *
- * Copyright (C) 2021 Linzhi Ltd.
+ * Copyright (C) 2021, 2022 Linzhi Ltd.
  *
  * This work is licensed under the terms of the MIT License.
  * A copy of the license can be found in the file COPYING.txt
@@ -28,7 +28,8 @@ enum mqtt_notify_type {
 extern bool shutdown_pending;
 extern bool hold;
 extern int curr_algo;
-extern uint16_t curr_epoch;
+extern int curr_epoch;
+extern int alt_epoch;
 extern uint64_t curr_block;
 
 
@@ -40,6 +41,6 @@ void mqtt_status(mqtt_handle mqtt, const char *s, bool flush);
 void mqtt_poll(mqtt_handle mqtt, bool do_wait);
 int mqtt_fd(mqtt_handle mqtt);
 
-mqtt_handle mqtt_init(const char *broker);
+mqtt_handle mqtt_init(const char *broker, bool just_one);
 
 #endif /* !DAGD_MQTT_H */

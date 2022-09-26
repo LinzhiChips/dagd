@@ -1,7 +1,7 @@
 /*
  * mqtt.c - MQTT interface
  *
- * Copyright (C) 2021 Linzhi Ltd.
+ * Copyright (C) 2021, 2022 Linzhi Ltd.
  *
  * This work is licensed under the terms of the MIT License.
  * A copy of the license can be found in the file COPYING.txt
@@ -51,8 +51,11 @@ enum mqtt_qos {
 bool shutdown_pending = 0;
 bool hold = 0;
 int curr_algo = -1;
-uint16_t curr_epoch = 0;
+int curr_epoch = -1;
+int alt_epoch = -1;
 uint64_t curr_block = 0;
+
+static bool limit_subscriptions = 0;
 
 
 /* ----- Notifications ----------------------------------------------------- */
@@ -119,6 +122,10 @@ static void process_epoch(unsigned n, const char *names)
 	const char *next;
 	int algo;
 
+	if ((int) n == alt_epoch) {
+		debug(0, "selected alternate epoch\n");
+		return;
+	}
 	if (names) {
 		next = strchr(names, ' ');
 		if (!next) {
@@ -133,7 +140,7 @@ static void process_epoch(unsigned n, const char *names)
 	} else {
 		algo = da_ethash;
 	}
-	if (algo == curr_algo && n == curr_epoch)
+	if (algo == curr_algo && (int) n == curr_epoch)
 		return;
 	curr_algo = algo;
 	curr_epoch = n;
@@ -240,6 +247,16 @@ static void connected(struct mosquitto *mosq, void *data, int result)
 		fprintf(stderr, "connect failed: %d\n", result);
 		exit(1);
 	}
+
+	res = mosquitto_subscribe(mosq, NULL, MQTT_TOPIC_SHUTDOWN, qos_ack);
+	if (res < 0) {
+		fprintf(stderr, "mosquitto_subscribe: %d\n", res);
+		exit(1);
+	}
+
+	if (limit_subscriptions)
+		return;
+
 	res = mosquitto_subscribe(mosq, NULL, MQTT_TOPIC_EPOCH, qos_ack);
 	if (res < 0) {
 		fprintf(stderr, "mosquitto_subscribe: %d\n", res);
@@ -251,11 +268,6 @@ static void connected(struct mosquitto *mosq, void *data, int result)
 		exit(1);
 	}
 	res = mosquitto_subscribe(mosq, NULL, MQTT_TOPIC_MINE_STATE, 0);
-	if (res < 0) {
-		fprintf(stderr, "mosquitto_subscribe: %d\n", res);
-		exit(1);
-	}
-	res = mosquitto_subscribe(mosq, NULL, MQTT_TOPIC_SHUTDOWN, qos_ack);
 	if (res < 0) {
 		fprintf(stderr, "mosquitto_subscribe: %d\n", res);
 		exit(1);
@@ -342,7 +354,8 @@ int mqtt_fd(mqtt_handle mqtt)
 /* ----- Initialization ---------------------------------------------------- */
 
 
-mqtt_handle mqtt_init(const char *broker)
+mqtt_handle mqtt_init(const char *broker, bool just_one)
 {
+	limit_subscriptions = just_one;
 	return setup_mqtt(broker);
 }

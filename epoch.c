@@ -1,7 +1,7 @@
 /*
  * epoch.c - Epoch data and operations
  *
- * Copyright (C) 2021 Linzhi Ltd.
+ * Copyright (C) 2021, 2022 Linzhi Ltd.
  *
  * This work is licensed under the terms of the MIT License.
  * A copy of the license can be found in the file COPYING.txt
@@ -299,8 +299,10 @@ static void epoch_scan(void)
 	enum dag_algo algo;
 	uint16_t epoch;
 
+	/* @@@ hack: include epoch 0 for ZIL */
 	for (algo = 0; algo != dag_algos; algo++)
-		for (epoch = EPOCH_MIN; epoch <= EPOCH_MAX; epoch++) {
+		for (epoch = 0; epoch <= EPOCH_MAX;
+		    epoch = epoch < EPOCH_MIN ? EPOCH_MIN : epoch + 1) {
 			debug(1, "epoch_scan: %s (%u) %u",
 			    dagalgo_name(algo), algo, epoch);
 			e = epoch_open(algo, epoch);
@@ -373,7 +375,7 @@ static bool maybe_prepend(void)
 	if (!e || e->num <= curr_epoch)
 		return 0;
 
-	debug(1, "prepend epoch %s %u (first was %u)",
+	debug(1, "prepend epoch %s %d (first was %u)",
 	    dagalgo_name(curr_algo), curr_epoch, e->num);
 	e = epoch_new(curr_algo, curr_epoch);
 	e->next = epochs;
@@ -398,7 +400,7 @@ static bool maybe_wipe(void)
 	if (!e || e->num >= curr_epoch)
 		return 0;
 	
-	debug(1, "purge epoch %u (current is %u)", e->num, curr_epoch);
+	debug(1, "purge epoch %u (current is %d)", e->num, curr_epoch);
 	if (e->dag_handle)
 		wipe_epoch(e);
 	*anchor = e->next;
@@ -418,7 +420,7 @@ bool epoch_work(bool just_one)
 		debug(2, "no current algorithm");
 		return 0;
 	}
-	if (!curr_epoch) {
+	if (curr_epoch == -1) {
 		debug(2, "no current epoch");
 		return 0;
 	}
@@ -510,7 +512,7 @@ void epoch_init(void)
 	epoch_scan();
 	if (curr_algo == -1 && epochs)
 		curr_algo = epochs->algo;
-	if (!curr_epoch && epochs)
+	if (curr_epoch == -1 && epochs)
 		curr_epoch = epochs->num;
 }
 
