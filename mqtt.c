@@ -148,24 +148,39 @@ static void process_epoch(unsigned n, const char *names)
 }
 
 
+static double parse_progress(const char *state, char tag)
+{
+	char find[3] = { tag, ':', 0 };
+	const char *s;
+	char *end;
+	double value;
+
+	s = strstr(state, find);
+	if (!s)
+		return 0;
+	value = strtod(s + 2, &end);
+	if (*end && *end != ' ')
+		return -1;
+	return value;
+}
+
+
 static void process_mine_state(unsigned slot, const char *state)
 {
 	static bool hold_slot[2] = { 0, 0 };
-	const char *s;
-	char *end;
-	double done;
+	double done_d, done_a;
 
 	debug(2, "process_mine_state(slot %u, state %s)", slot, state);
-	s = strstr(state, "D:");
-	if (!s)
-		return;
-	done = strtod(s + 2, &end);
-	if (*end && *end != ' ') {
+
+	done_d = parse_progress(state, 'D');
+	done_a = parse_progress(state, 'A');
+	if (done_d < 0 || done_a < 0) {
 		debug(0, "process_mine_state: bad progress in \"%s\"", state);
 		return;
 	}
 
-	bool next_hold = done != 0 && done != 1;
+	bool next_hold = (done_d != 0 && done_d != 1) ||
+	    (done_a != 0 && done_a != 1);
 
 	debug(3,
 	    "process_mine_state: slot %u, state \"%s\", hold %u,%u, next %u",
