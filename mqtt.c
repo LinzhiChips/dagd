@@ -39,6 +39,11 @@
 #define	MQTT_TOPIC_MINE_STATE	"/mine/+/state"
 #define	MQTT_TOPIC_MINE_STATE_0	"/mine/0/state"
 #define	MQTT_TOPIC_MINE_STATE_1	"/mine/1/state"
+#define	MQTT_TOPIC_MINE_RUNNING	"/mine/running"
+#define	MQTT_TOPIC_MINE_RUNNING_0 \
+				"/mine/0/running"
+#define	MQTT_TOPIC_MINE_RUNNING_1 \
+				"/mine/1/running"
 #define	MQTT_CLIENT		"dagd"
 
 enum mqtt_qos {
@@ -114,7 +119,7 @@ void mqtt_status(mqtt_handle mqtt, const char *s, bool flush)
 }
 
 
-/* ----- MQTT reception ---------------------------------------------------- */
+/* ----- Epoch change ------------------------------------------------------ */
 
 
 static void process_epoch(unsigned n, const char *names)
@@ -148,6 +153,25 @@ static void process_epoch(unsigned n, const char *names)
 }
 
 
+/* ----- Hold logic -------------------------------------------------------- */
+
+
+static bool hold_slot[2] = { 0, 0 };
+static bool running[2] = { 0, 0 };
+
+
+static void update_hold(void)
+{
+	bool next =
+	    (hold_slot[0] && running[0]) || (hold_slot[1] && running[1]);
+
+	if (next != hold)
+		debug(2, "%s holding", hold ? "end" : "begin");
+	hold = next;
+	notify(mqtt_notify_mined_state);
+}
+
+
 static double parse_progress(const char *state, char tag)
 {
 	char find[3] = { tag, ':', 0 };
@@ -167,7 +191,6 @@ static double parse_progress(const char *state, char tag)
 
 static void process_mine_state(unsigned slot, const char *state)
 {
-	static bool hold_slot[2] = { 0, 0 };
 	double done_d, done_a;
 
 	debug(2, "process_mine_state(slot %u, state %s)", slot, state);
@@ -187,11 +210,23 @@ static void process_mine_state(unsigned slot, const char *state)
 	    slot, state, hold_slot[0], hold_slot[1], next_hold);
 
 	hold_slot[slot] = next_hold;
-	if ((hold_slot[0] || hold_slot[1]) != hold)
-		debug(2, "%s holding", hold ? "end" : "begin");
-	hold = hold_slot[0] || hold_slot[1];
-	notify(mqtt_notify_mined_state);
+	update_hold();
 }
+
+
+static void process_running(const char *topic, unsigned runs)
+{
+	if (!strcmp(topic, MQTT_TOPIC_MINE_RUNNING))
+		running[0] = running[1] = runs;
+	else if (!strcmp(topic, MQTT_TOPIC_MINE_RUNNING_0))
+		running[0] = runs;
+	else if (!strcmp(topic, MQTT_TOPIC_MINE_RUNNING_1))
+		running[1] = runs;
+	update_hold();
+}
+
+
+/* ----- MQTT reception ---------------------------------------------------- */
 
 
 static void message(struct mosquitto *mosq, void *user,
@@ -210,6 +245,10 @@ static void message(struct mosquitto *mosq, void *user,
 		type = mqtt_notify_mined_state;
 	} else if (!strcmp(msg->topic, MQTT_TOPIC_SHUTDOWN)) {
 		type = mqtt_notify_shutdown;
+	} else if (!strcmp(msg->topic, MQTT_TOPIC_MINE_RUNNING) ||
+	    !strcmp(msg->topic, MQTT_TOPIC_MINE_RUNNING_0) ||
+	    !strcmp(msg->topic, MQTT_TOPIC_MINE_RUNNING_1)) {
+		type = mqtt_notify_running;
 	} else {
 		fprintf(stderr, "unrecognized topic '%s'\n", msg->topic);
 		return;
@@ -244,6 +283,10 @@ static void message(struct mosquitto *mosq, void *user,
 		free(buf);
 		shutdown_pending = n;
 		notify(mqtt_notify_shutdown);
+		break;
+	case mqtt_notify_running:
+		free(buf);
+		process_running(msg->topic, n);
 		break;
 	default:
 		abort();
@@ -283,6 +326,23 @@ static void connected(struct mosquitto *mosq, void *data, int result)
 		exit(1);
 	}
 	res = mosquitto_subscribe(mosq, NULL, MQTT_TOPIC_MINE_STATE, 0);
+	if (res < 0) {
+		fprintf(stderr, "mosquitto_subscribe: %d\n", res);
+		exit(1);
+	}
+	res = mosquitto_subscribe(mosq, NULL, MQTT_TOPIC_MINE_RUNNING, qos_ack);
+	if (res < 0) {
+		fprintf(stderr, "mosquitto_subscribe: %d\n", res);
+		exit(1);
+	}
+	res = mosquitto_subscribe(mosq, NULL, MQTT_TOPIC_MINE_RUNNING_0,
+	    qos_ack);
+	if (res < 0) {
+		fprintf(stderr, "mosquitto_subscribe: %d\n", res);
+		exit(1);
+	}
+	res = mosquitto_subscribe(mosq, NULL, MQTT_TOPIC_MINE_RUNNING_1,
+	    qos_ack);
 	if (res < 0) {
 		fprintf(stderr, "mosquitto_subscribe: %d\n", res);
 		exit(1);

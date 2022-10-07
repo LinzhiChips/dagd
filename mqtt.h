@@ -22,6 +22,7 @@ enum mqtt_notify_type {
 	mqtt_notify_epoch,
 	mqtt_notify_mined_state,
 	mqtt_notify_shutdown,
+	mqtt_notify_running,
 };
 
 
