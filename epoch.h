@@ -1,7 +1,7 @@
 /*
  * epoch.h - Epoch data and operations
  *
- * Copyright (C) 2021 Linzhi Ltd.
+ * Copyright (C) 2021, 2022 Linzhi Ltd.
  *
  * This work is licensed under the terms of the MIT License.
  * A copy of the license can be found in the file COPYING.txt
@@ -20,11 +20,12 @@
 
 
 /*
- * Note: if mining an Ethash-based coin other than ETC or ETH, you may need to
- * change EPOCH_MIN.
+ * Note: if mining an Ethash-based coin with a really tiny DAG, you may need to
+ * change EPOCH_MIN. (ZIL, currently at with epoch 0, is treated as a special
+ * case.)
  */
 
-#define	EPOCH_MIN	40	/* first epoch we may possibly see */
+#define	EPOCH_MIN	8	/* first epoch we may possibly see (POM) */
 #define	EPOCH_MAX	1000	/* highest epoch our hardware supports is 439
 				   (* 2 for ETC), but we can zombie-mine beyond
 				   this. 120 more epochs should be more than
