@@ -54,7 +54,7 @@ static void loop(const char *broker)
 		while (!shutdown_pending) {
 			if (idle || hold) {
 				enum dag_algo last_algo;
-				uint16_t last_epoch;
+				int last_epoch;
 
 				if (!holding && hold)
 					debug(1, "holding");
