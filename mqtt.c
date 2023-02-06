@@ -1,7 +1,7 @@
 /*
  * mqtt.c - MQTT interface
  *
- * Copyright (C) 2021, 2022 Linzhi Ltd.
+ * Copyright (C) 2021-2023 Linzhi Ltd.
  *
  * This work is licensed under the terms of the MIT License.
  * A copy of the license can be found in the file COPYING.txt
@@ -265,9 +265,14 @@ static void message(struct mosquitto *mosq, void *user,
 		return;
 	}
 
+	if (type == mqtt_notify_epoch && !strcmp(buf, "-")) {
+		free(buf);
+		return;
+	}
+
 	n = strtoul(buf, &end, 0);
 	if (*end && *end != ' ') {
-		fprintf(stderr, "bad number '%s'\n", buf);
+		fprintf(stderr, "%s: bad number '%s'\n", msg->topic, buf);
 		free(buf);
 		return;
 	}
