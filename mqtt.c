@@ -283,6 +283,7 @@ static void message(struct mosquitto *mosq, void *user,
 			process_epoch(n, end + 1);
 		else
 			process_epoch(n, NULL);
+		free(buf);
 		break;
 	case mqtt_notify_shutdown:
 		free(buf);
