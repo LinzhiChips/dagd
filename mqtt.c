@@ -44,7 +44,14 @@
 				"/mine/0/running"
 #define	MQTT_TOPIC_MINE_RUNNING_1 \
 				"/mine/1/running"
+
+/* topic we ignore */
+
+#define	MQTT_TOPIC_MINE_POOL_STATE \
+				"/mine/pool/state"
+
 #define	MQTT_CLIENT		"dagd"
+
 
 enum mqtt_qos {
 	qos_be		= 0,
@@ -249,6 +256,9 @@ static void message(struct mosquitto *mosq, void *user,
 	    !strcmp(msg->topic, MQTT_TOPIC_MINE_RUNNING_0) ||
 	    !strcmp(msg->topic, MQTT_TOPIC_MINE_RUNNING_1)) {
 		type = mqtt_notify_running;
+	} else if (!strcmp(msg->topic, MQTT_TOPIC_MINE_POOL_STATE)) {
+		/* /mine/+/state also catches /mine/pool/state */
+		return;
 	} else {
 		fprintf(stderr, "unrecognized topic '%s'\n", msg->topic);
 		return;
