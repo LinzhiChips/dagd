@@ -1,7 +1,7 @@
 /*
  * mqtt.h - MQTT interface
  *
- * Copyright (C) 2021, 2022 Linzhi Ltd.
+ * Copyright (C) 2021-2023 Linzhi Ltd.
  *
  * This work is licensed under the terms of the MIT License.
  * A copy of the license can be found in the file COPYING.txt
@@ -33,9 +33,6 @@ extern int curr_epoch;
 extern int alt_epoch;
 extern uint64_t curr_block;
 
-
-void mqtt_subscribe(enum mqtt_notify_type type,
-    void (*fn)(void *user), void *user);
 
 void mqtt_status(mqtt_handle mqtt, const char *s, bool flush);
 

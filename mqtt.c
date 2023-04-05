@@ -70,41 +70,6 @@ uint64_t curr_block = 0;
 static bool limit_subscriptions = 0;
 
 
-/* ----- Notifications ----------------------------------------------------- */
-
-
-struct subscription {
-	enum mqtt_notify_type type;
-	void (*fn)(void *user);
-	void *user;
-};
-
-
-static struct subscription *sub = NULL;
-static unsigned subs = 0;
-
-
-static void notify(enum mqtt_notify_type type)
-{
-	const struct subscription *s;
-
-	for (s  = sub; s != sub + subs; s++)
-		if (s->type == type)
-			s->fn(s->user);
-}
-
-
-void mqtt_subscribe(enum mqtt_notify_type type,
-    void (*fn)(void *user), void *user)
-{
-	sub = realloc_type_n(sub, subs + 1);
-	sub[subs].type = type;
-	sub[subs].fn = fn;
-	sub[subs].user = user;
-	subs++;
-}
-
-
 /* ----- MQTT transmission ------------------------------------------------- */
 
 
@@ -156,7 +121,6 @@ static void process_epoch(unsigned n, const char *names)
 		return;
 	curr_algo = algo;
 	curr_epoch = n;
-	notify(mqtt_notify_epoch);
 }
 
 
@@ -175,7 +139,6 @@ static void update_hold(void)
 	if (next != hold)
 		debug(2, "%s holding", hold ? "end" : "begin");
 	hold = next;
-	notify(mqtt_notify_mined_state);
 }
 
 
@@ -298,7 +261,6 @@ static void message(struct mosquitto *mosq, void *user,
 	case mqtt_notify_shutdown:
 		free(buf);
 		shutdown_pending = n;
-		notify(mqtt_notify_shutdown);
 		break;
 	case mqtt_notify_running:
 		free(buf);
